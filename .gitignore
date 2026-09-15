@@ -1,0 +1,16 @@
+# Build outputs
+out/
+bin/
+obj/
+*.tmp
+*.bak
+
+# Temporary / logs
+*.log
+.mimosa/
+.vs/
+.idea/
+
+# Local states
+state/
+shots/
