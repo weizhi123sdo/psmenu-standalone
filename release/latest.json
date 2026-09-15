@@ -1,10 +1,10 @@
-﻿{
+{
     "full_version":  "2026.09.15 · 独立版 v1.0",
-    "note":  "PSMenu 鐙珛鐗堜竴閿垎鍙戝帇缂╁寘",
+    "note":  "PSMenu 独立版一键分发压缩包",
     "files":  [
                   {
                       "path":  "psmenu_standalone.zip",
-                      "url":  "https://gitee.com/weizhiOWO/psmenu-standalone/raw/main/release/psmenu_standalone.zip",
+                      "url":  "https://gitee.com/weizhiOWO/quicker-actions/raw/main/psmenu/psmenu_standalone.zip",
                       "fallbackUrl":  "https://raw.githubusercontent.com/weizhi123sdo/psmenu-standalone/main/release/psmenu_standalone.zip",
                       "sha256":  "a9926faab73445f5926efbb74231061e88449866167d808f8a9f43977c5fe4a8",
                       "size":  2177754

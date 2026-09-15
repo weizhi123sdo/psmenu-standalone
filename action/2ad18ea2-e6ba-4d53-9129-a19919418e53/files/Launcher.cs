@@ -15,7 +15,7 @@ public static class Launcher
     private static readonly string ExePath = Path.Combine(AppDir, "PSMenu.exe");
     private static readonly string VerPath = Path.Combine(AppDir, "version.txt");
 
-    private const string ManifestGitee = "https://gitee.com/weizhiOWO/psmenu-standalone/raw/main/release/latest.json";
+    private const string ManifestGitee = "https://gitee.com/weizhiOWO/quicker-actions/raw/main/psmenu/latest.json";
     private const string ManifestGithub = "https://raw.githubusercontent.com/weizhi123sdo/psmenu-standalone/main/release/latest.json";
 
     public static string Exec(IStepContext context)
