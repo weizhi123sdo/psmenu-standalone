@@ -1,0 +1,466 @@
+{
+  "steps": [
+    {
+      "stepRunnerKey": "sys:comment",
+      "note": "PSMenu 独立版：确保最新 → 安装/更新 → 常驻启动或唤出菜单（纯模块流，无脚本）"
+    },
+    {
+      "stepRunnerKey": "sys:fileOperation",
+      "inputParams": {
+        "type": "makeDir",
+        "path": "$${安装目录}",
+        "stopIfFail": "0"
+      },
+      "note": "确保安装目录存在"
+    },
+    {
+      "stepRunnerKey": "sys:checkPathExists",
+      "inputParams": {
+        "path": "$${安装目录}\\PSMenu.exe"
+      },
+      "outputParams": {
+        "isExists": "已安装"
+      },
+      "note": "是否已安装"
+    },
+    {
+      "stepRunnerKey": "sys:readFile",
+      "inputParams": {
+        "type": "text",
+        "path": "$${安装目录}\\version.txt",
+        "encoding": "utf-8",
+        "stopIfFail": "0"
+      },
+      "outputParams": {
+        "txt": "本地版本"
+      },
+      "note": "读取本地已装版本"
+    },
+    {
+      "stepRunnerKey": "sys:http",
+      "inputParams": {
+        "url": "https://gitee.com/weizhiOWO/quicker-actions/raw/main/psmenu/latest.json",
+        "method": "GET",
+        "resultType": "Text",
+        "expireSeconds": "6",
+        "stopIfFail": "0"
+      },
+      "outputParams": {
+        "content": "清单文本"
+      },
+      "note": "拉取 Gitee 分发仓版本清单"
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$=!string.IsNullOrEmpty({清单文本})"
+      },
+      "note": "拿到清单才做更新；拿不到则走离线兜底",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:jsonExtract",
+          "inputParams": {
+            "data.var": "清单文本",
+            "p0": "version",
+            "p1": "files[0].url",
+            "p2": "files[0].fallbackUrl",
+            "p3": "files[0].sha256",
+            "stopIfFail": "0"
+          },
+          "outputParams": {
+            "v0": "远端版本",
+            "v1": "下载URL",
+            "v2": "备用URL",
+            "v3": "期望sha"
+          },
+          "note": "解析清单：版本 / 主源 / 备源 / 校验值"
+        },
+        {
+          "stepRunnerKey": "sys:strCompare",
+          "inputParams": {
+            "param1.var": "本地版本",
+            "type": "=",
+            "param2.var": "远端版本",
+            "case": "0"
+          },
+          "outputParams": {
+            "value": "版本相同"
+          },
+          "note": "本地版本是否已是远端版本"
+        },
+        {
+          "stepRunnerKey": "sys:strCompare",
+          "inputParams": {
+            "param1.var": "quicker_in_param",
+            "type": "=",
+            "param2": "update",
+            "case": "0"
+          },
+          "outputParams": {
+            "value": "强制更新"
+          },
+          "note": "是否强制更新（传参 update）"
+        },
+        {
+          "stepRunnerKey": "sys:simpleIf",
+          "inputParams": {
+            "condition": "$=!{已安装} || !{版本相同} || {强制更新}"
+          },
+          "note": "未安装、版本落后或强制更新时才下载",
+          "ifSteps": [
+            {
+              "stepRunnerKey": "sys:download",
+              "inputParams": {
+                "url.var": "下载URL",
+                "savePath": "$${临时目录}",
+                "saveName": "psmenu_standalone.zip",
+                "expireSeconds": "60",
+                "showProgress": "1",
+                "stopIfFail": "0"
+              },
+              "outputParams": {
+                "isSuccess": "下载成功"
+              },
+              "note": "主源下载（Gitee）"
+            },
+            {
+              "stepRunnerKey": "sys:simpleIf",
+              "inputParams": {
+                "condition": "$=!{下载成功}"
+              },
+              "note": "主源失败则换备用源（GitHub）",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:download",
+                  "inputParams": {
+                    "url.var": "备用URL",
+                    "savePath": "$${临时目录}",
+                    "saveName": "psmenu_standalone.zip",
+                    "expireSeconds": "60",
+                    "showProgress": "1",
+                    "stopIfFail": "0"
+                  },
+                  "outputParams": {
+                    "isSuccess": "下载成功"
+                  },
+                  "note": "备用源下载"
+                }
+              ]
+            },
+            {
+              "stepRunnerKey": "sys:simpleIf",
+              "inputParams": {
+                "condition": "$=!{下载成功}"
+              },
+              "note": "两个源都失败：明确报错并中止",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:notify",
+                  "inputParams": {
+                    "type": "Error",
+                    "msg": "PSMenu 更新包下载失败（Gitee 与 GitHub 均不可用）"
+                  }
+                },
+                {
+                  "stepRunnerKey": "sys:stop",
+                  "inputParams": {
+                    "method": "default",
+                    "isError": "1",
+                    "return": "ERR: download failed"
+                  }
+                }
+              ]
+            },
+            {
+              "stepRunnerKey": "sys:checkPathExists",
+              "inputParams": {
+                "path": "$${更新包路径}"
+              },
+              "outputParams": {
+                "sha256hash": "实际sha"
+              },
+              "note": "取下载包的 SHA256"
+            },
+            {
+              "stepRunnerKey": "sys:strCompare",
+              "inputParams": {
+                "param1.var": "实际sha",
+                "type": "=",
+                "param2.var": "期望sha",
+                "case": "0"
+              },
+              "outputParams": {
+                "value": "校验通过"
+              },
+              "note": "下载包哈希是否与清单一致"
+            },
+            {
+              "stepRunnerKey": "sys:simpleIf",
+              "inputParams": {
+                "condition": "$=!{校验通过}"
+              },
+              "note": "完整性校验不通过即中止（防劫持/半包）",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:notify",
+                  "inputParams": {
+                    "type": "Error",
+                    "msg": "PSMenu 更新包校验不通过（SHA256 不匹配），已中止"
+                  }
+                },
+                {
+                  "stepRunnerKey": "sys:stop",
+                  "inputParams": {
+                    "method": "default",
+                    "isError": "1",
+                    "return": "ERR: sha256 mismatch"
+                  }
+                }
+              ]
+            },
+            {
+              "stepRunnerKey": "sys:checkProcessExists",
+              "inputParams": {
+                "process": "PSMenu",
+                "stopIfFail": "0"
+              },
+              "outputParams": {
+                "isExists": "进程在跑"
+              },
+              "note": "更新前检查是否在运行"
+            },
+            {
+              "stepRunnerKey": "sys:simpleIf",
+              "inputParams": {
+                "condition": "$={进程在跑}"
+              },
+              "note": "在运行则先退出，否则 exe/dll 被占用无法覆盖",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:run",
+                  "inputParams": {
+                    "path": "taskkill",
+                    "arg": "/IM PSMenu.exe /F",
+                    "waitExit": "1",
+                    "stopIfFail": "0"
+                  },
+                  "note": "结束常驻实例"
+                },
+                {
+                  "stepRunnerKey": "sys:delay",
+                  "inputParams": {
+                    "delayMs": "800"
+                  },
+                  "note": "等文件锁释放"
+                }
+              ]
+            },
+            {
+              "stepRunnerKey": "sys:zip",
+              "inputParams": {
+                "type": "Unzip",
+                "sourceZipFile": "$${更新包路径}",
+                "outputPath": "$${安装目录}",
+                "overwrite": "1",
+                "showProgress": "1",
+                "stopIfFail": "0"
+              },
+              "note": "解压覆盖到安装目录"
+            },
+            {
+              "stepRunnerKey": "sys:WriteTextFile",
+              "inputParams": {
+                "content.var": "远端版本",
+                "filePath": "$${安装目录}\\version.txt",
+                "encoding": "utf-8",
+                "addUtf8Bom": "0",
+                "stopIfFail": "0"
+              },
+              "note": "回写版本号（不加 BOM，否则下次比对永不相等）"
+            },
+            {
+              "stepRunnerKey": "sys:stateStorage",
+              "inputParams": {
+                "type": "UpdateActionBadge",
+                "badgeText": "$$v{远端版本}"
+              },
+              "note": "动作徽标显示当前版本"
+            },
+            {
+              "stepRunnerKey": "sys:notify",
+              "inputParams": {
+                "type": "Success",
+                "msg": "$$PSMenu 已更新到 v{远端版本}"
+              },
+              "note": "更新完成反馈"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$=!{已安装} && string.IsNullOrEmpty({清单文本})"
+      },
+      "note": "离线且从未装过：没有可启动的东西，明确报错",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:notify",
+          "inputParams": {
+            "type": "Error",
+            "msg": "PSMenu 尚未安装，且无法连接更新服务器，请检查网络"
+          }
+        },
+        {
+          "stepRunnerKey": "sys:stop",
+          "inputParams": {
+            "method": "default",
+            "isError": "1",
+            "return": "ERR: offline and not installed"
+          }
+        }
+      ]
+    },
+    {
+      "stepRunnerKey": "sys:checkProcessExists",
+      "inputParams": {
+        "process": "PSMenu",
+        "stopIfFail": "0"
+      },
+      "outputParams": {
+        "isExists": "进程在跑"
+      },
+      "note": "启动前检查常驻实例"
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$={进程在跑}"
+      },
+      "note": "已常驻：传参经具名管道唤出菜单，不重复起进程",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:run",
+          "inputParams": {
+            "path": "$${安装目录}\\PSMenu.exe",
+            "arg": "menu",
+            "stopIfFail": "0"
+          },
+          "note": "唤出菜单"
+        }
+      ]
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$=!{进程在跑}"
+      },
+      "note": "未常驻：静默拉起托盘常驻实例",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:run",
+          "inputParams": {
+            "path": "$${安装目录}\\PSMenu.exe",
+            "stopIfFail": "0"
+          },
+          "note": "启动常驻"
+        }
+      ]
+    },
+    {
+      "stepRunnerKey": "sys:stop",
+      "inputParams": {
+        "method": "default",
+        "isError": "0",
+        "return.var": "rtn"
+      },
+      "note": "返回"
+    }
+  ],
+  "variables": [
+    {
+      "key": "quicker_in_param",
+      "desc": "传入指令：空=启动/唤出，config=打开设置，update=强制更新",
+      "isInput": true,
+      "default": ""
+    },
+    {
+      "key": "安装目录",
+      "desc": "PSMenu 独立版安装位置",
+      "default": "C:\\Users\\EDY\\AppData\\Local\\PSMenu\\app"
+    },
+    {
+      "key": "临时目录",
+      "desc": "更新包下载位置",
+      "default": "C:\\Users\\EDY\\AppData\\Local\\Temp"
+    },
+    {
+      "key": "更新包路径",
+      "desc": "下载后的 zip 完整路径",
+      "default": "C:\\Users\\EDY\\AppData\\Local\\Temp\\psmenu_standalone.zip"
+    },
+    {
+      "key": "已安装",
+      "varType": "boolean",
+      "desc": "本地是否已安装"
+    },
+    {
+      "key": "本地版本",
+      "desc": "本地 version.txt 内容"
+    },
+    {
+      "key": "清单文本",
+      "desc": "远端 latest.json 原文"
+    },
+    {
+      "key": "远端版本",
+      "desc": "清单里的 version"
+    },
+    {
+      "key": "版本相同",
+      "varType": "boolean",
+      "desc": "本地版本 == 远端版本"
+    },
+    {
+      "key": "强制更新",
+      "varType": "boolean",
+      "desc": "传参是否为 update"
+    },
+    {
+      "key": "下载URL",
+      "desc": "主源下载地址"
+    },
+    {
+      "key": "备用URL",
+      "desc": "备用源下载地址"
+    },
+    {
+      "key": "期望sha",
+      "desc": "清单里的 sha256"
+    },
+    {
+      "key": "实际sha",
+      "desc": "下载包实测 sha256"
+    },
+    {
+      "key": "校验通过",
+      "varType": "boolean",
+      "desc": "实际 sha == 期望 sha"
+    },
+    {
+      "key": "下载成功",
+      "varType": "boolean",
+      "desc": "下载是否成功"
+    },
+    {
+      "key": "进程在跑",
+      "varType": "boolean",
+      "desc": "PSMenu 是否已常驻"
+    },
+    {
+      "key": "rtn",
+      "desc": "返回值"
+    }
+  ]
+}
