@@ -1,0 +1,46 @@
+{
+  "variables": [
+    {
+      "isInput": true,
+      "key": "quicker_in_param",
+      "desc": "传入指令(update/config/menu)",
+      "default": ""
+    },
+    {
+      "key": "rtn",
+      "desc": "执行结果",
+      "default": ""
+    },
+    {
+      "key": "errMessage",
+      "desc": "错误信息",
+      "default": ""
+    }
+  ],
+  "steps": [
+    {
+      "outputParams": {
+        "errMessage": "errMessage",
+        "rtn": "rtn"
+      },
+      "inputParams": {
+        "reference": "Newtonsoft.Json.dll\nSystem.IO.Compression.dll\nSystem.IO.Compression.FileSystem.dll",
+        "stopIfFail": "0",
+        "runOnUiThread": "background",
+        "script.file": "files/Launcher.cs",
+        "mode": "normal_roslyn"
+      },
+      "stepRunnerKey": "sys:csscript",
+      "note": "启动与自动下载更新核心"
+    },
+    {
+      "inputParams": {
+        "method": "default",
+        "isError": "0",
+        "return.var": "rtn"
+      },
+      "stepRunnerKey": "sys:stop",
+      "note": "返回"
+    }
+  ]
+}

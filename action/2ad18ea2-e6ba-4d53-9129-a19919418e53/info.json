@@ -1,0 +1,8 @@
+﻿{
+    "id":  "2ad18ea2-e6ba-4d53-9129-a19919418e53",
+    "description":  "自动检查远端最新版本，增量更新独立版并在后台常驻或前台唤出。",
+    "editVersion":  "1789485887464",
+    "icon":  "fa:Solid_Rocket:#00A8FF",
+    "title":  "PSMenu 独立版启动与更新",
+    "exportedUtc":  "2026-09-15T15:24:47.4691576Z"
+}
