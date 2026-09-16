@@ -36,6 +36,93 @@
       "note": "默认装到 %LOCALAPPDATA%\\PSMenu\\app；用户自己选过就用用户的"
     },
     {
+      "stepRunnerKey": "sys:checkPathExists",
+      "inputParams": {
+        "path": "$${安装目录}\\PSMenu.exe"
+      },
+      "outputParams": {
+        "isExists": "已安装"
+      },
+      "note": "是否已安装（提前到分支之前：下面几个入口都要用它判断）"
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$=!{已安装}"
+      },
+      "note": "第一次装：先问装哪儿，别一声不响就装到默认位置",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:MsgBox",
+          "inputParams": {
+            "operation": "custom",
+            "title": "装到哪里？",
+            "message": "$$还没有装 PS便捷菜单，先定个位置。\n\n默认位置（推荐）：\n{安装目录}\n\n放这儿的好处是跟着你的用户配置走，不用管。\n想放到别的盘或别的目录，就选下面第二项。",
+            "icon": "Question",
+            "customButtons": "[fa:Light_Home:#0A66C2]用默认位置|default\n[fa:Light_FolderOpen:#4F46E5]我自己选一个|choose",
+            "defaultButton": "default"
+          },
+          "outputParams": {
+            "result": "位置选择"
+          },
+          "note": "两个选项都给明确；默认停在「用默认位置」"
+        },
+        {
+          "stepRunnerKey": "sys:strCompare",
+          "inputParams": {
+            "param1.var": "位置选择",
+            "type": "=",
+            "param2": "choose",
+            "case": "0"
+          },
+          "outputParams": {
+            "value": "要自己选"
+          },
+          "note": "选了「我自己选一个」才弹文件夹框"
+        },
+        {
+          "stepRunnerKey": "sys:simpleIf",
+          "inputParams": {
+            "condition": "$={要自己选}"
+          },
+          "ifSteps": [
+            {
+              "stepRunnerKey": "sys:selectFolder",
+              "inputParams": {
+                "prompt": "选一个固定位置存放 PSMenu（别选桌面／临时目录）",
+                "initDir.var": "本地AppData",
+                "stopIfFail": "0"
+              },
+              "outputParams": {
+                "isSuccess": "选好了",
+                "path": "选的目录"
+              },
+              "note": "弹文件夹选择框"
+            },
+            {
+              "stepRunnerKey": "sys:assign",
+              "inputParams": {
+                "input": "$=string.IsNullOrWhiteSpace({选的目录}) ? {安装目录} : System.IO.Path.Combine({选的目录}, \"PSMenu\", \"app\")"
+              },
+              "outputParams": {
+                "output": "安装目录"
+              },
+              "note": "取消选择就退回默认位置；选中了就在其下再建一层 PSMenu\\app，不把文件铺在用户选的目录里"
+            },
+            {
+              "stepRunnerKey": "sys:stateStorage",
+              "inputParams": {
+                "type": "saveActionState",
+                "key": "installDir",
+                "value.var": "安装目录"
+              },
+              "note": "记住位置，下次不再问"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "stepRunnerKey": "sys:strCompare",
       "inputParams": {
         "param1.var": "quicker_in_param",
@@ -145,12 +232,13 @@
             "title": "卸载 PS便捷菜单",
             "message": "$$要卸载 PS便捷菜单吗？\n\n会做这几件事：\n· 关掉正在运行的菜单程序\n· 取消开机自启\n· 删掉桌面快捷方式\n· 程序文件移入回收站（可恢复）\n\n当前安装位置：\n{安装目录}",
             "icon": "Warning",
-            "buttons": "YesNo"
+            "buttons": "YesNo",
+            "defaultButton": "No"
           },
           "outputParams": {
             "okOrYes": "确认卸载"
           },
-          "note": "卸载不可轻率，先问一遍"
+          "note": "卸载不可轻率，先问一遍；默认停在「否」，回车不会误删"
         },
         {
           "stepRunnerKey": "sys:simpleIf",
@@ -231,12 +319,13 @@
             "title": "菜单配置怎么处理",
             "message": "程序文件已经清掉了。\n\n你调好的菜单还留在 %APPDATA%\\PSMenu，要一起删吗？\n\n· 选「否」＝ 留着。以后重装还认得你的菜单和置顶\n· 选「是」＝ 一起删掉，重装就是全新的",
             "icon": "Question",
-            "buttons": "YesNo"
+            "buttons": "YesNo",
+            "defaultButton": "No"
           },
           "outputParams": {
             "okOrYes": "连配置一起删"
           },
-          "note": "配置是用户自己调出来的劳动成果，默认留着，让用户定"
+          "note": "配置是用户自己调出来的劳动成果，默认留在「否」。这一条曾经没设默认按钮、回车即删，实测把配置删进过回收站——破坏性动作的默认值必须是安全的那一侧"
         },
         {
           "stepRunnerKey": "sys:simpleIf",
@@ -307,16 +396,6 @@
         "stopIfFail": "0"
       },
       "note": "确保安装目录存在"
-    },
-    {
-      "stepRunnerKey": "sys:checkPathExists",
-      "inputParams": {
-        "path": "$${安装目录}\\PSMenu.exe"
-      },
-      "outputParams": {
-        "isExists": "已安装"
-      },
-      "note": "是否已安装"
     },
     {
       "stepRunnerKey": "sys:readFile",
