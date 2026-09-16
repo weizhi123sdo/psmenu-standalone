@@ -100,23 +100,58 @@
               "note": "弹文件夹选择框"
             },
             {
-              "stepRunnerKey": "sys:assign",
+              "stepRunnerKey": "sys:simpleIf",
               "inputParams": {
-                "input": "$=string.IsNullOrWhiteSpace({选的目录}) ? {安装目录} : System.IO.Path.Combine({选的目录}, \"PSMenu\", \"app\")"
+                "condition": "$={选好了}"
               },
-              "outputParams": {
-                "output": "安装目录"
-              },
-              "note": "取消选择就退回默认位置；选中了就在其下再建一层 PSMenu\\app，不把文件铺在用户选的目录里"
+              "note": "真选了才改路径、才记忆",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:assign",
+                  "inputParams": {
+                    "input": "$=System.IO.Path.Combine({选的目录}, \"PSMenu\", \"app\")"
+                  },
+                  "outputParams": {
+                    "output": "安装目录"
+                  },
+                  "note": "在选中目录下再建一层 PSMenu\\app，不把文件铺在用户选的目录里"
+                },
+                {
+                  "stepRunnerKey": "sys:stateStorage",
+                  "inputParams": {
+                    "type": "saveActionState",
+                    "key": "installDir",
+                    "value.var": "安装目录"
+                  },
+                  "note": "记住位置，下次不再问"
+                }
+              ]
             },
             {
-              "stepRunnerKey": "sys:stateStorage",
+              "stepRunnerKey": "sys:simpleIf",
               "inputParams": {
-                "type": "saveActionState",
-                "key": "installDir",
-                "value.var": "安装目录"
+                "condition": "$=!{选好了}"
               },
-              "note": "记住位置，下次不再问"
+              "note": "取消了文件夹框：直接停。这一支绝不能碰 {选的目录}（没有值，写进表达式会报错），也不该“默认一下”就装到别处——取消的意思就是先不装",
+              "ifSteps": [
+                {
+                  "stepRunnerKey": "sys:notify",
+                  "inputParams": {
+                    "type": "Info",
+                    "msg": "没有选择安装位置，这次就不装了。想装的时候再点一次动作。"
+                  },
+                  "note": "说清楚发生了什么，别让用户以为按了没反应"
+                },
+                {
+                  "stepRunnerKey": "sys:stop",
+                  "inputParams": {
+                    "method": "default",
+                    "isError": "0",
+                    "return": "Cancelled"
+                  },
+                  "note": "到此为止，不往下走安装流程"
+                }
+              ]
             }
           ]
         }
