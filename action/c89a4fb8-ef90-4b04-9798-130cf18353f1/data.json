@@ -5,6 +5,301 @@
       "note": "PSMenu 独立版：确保最新 → 安装/更新 → 常驻启动或唤出菜单（纯模块流，无脚本）"
     },
     {
+      "stepRunnerKey": "sys:stateStorage",
+      "inputParams": {
+        "type": "readActionState",
+        "key": "installDir"
+      },
+      "outputParams": {
+        "value": "已选安装目录"
+      },
+      "note": "读用户自选的安装位置（没选过就是空）"
+    },
+    {
+      "stepRunnerKey": "sys:getFolderPath",
+      "inputParams": {
+        "folder": "LocalApplicationData"
+      },
+      "outputParams": {
+        "path": "本地AppData"
+      },
+      "note": "取 %LOCALAPPDATA%。原先默认值是写死的作者机器路径（C:\\Users\\EDY\\...），别人装上去根本不存在"
+    },
+    {
+      "stepRunnerKey": "sys:assign",
+      "inputParams": {
+        "input": "$=string.IsNullOrWhiteSpace({已选安装目录}) ? System.IO.Path.Combine({本地AppData}, \"PSMenu\", \"app\") : {已选安装目录}"
+      },
+      "outputParams": {
+        "output": "安装目录"
+      },
+      "note": "默认装到 %LOCALAPPDATA%\\PSMenu\\app；用户自己选过就用用户的"
+    },
+    {
+      "stepRunnerKey": "sys:strCompare",
+      "inputParams": {
+        "param1.var": "quicker_in_param",
+        "type": "=",
+        "param2": "setpath",
+        "case": "0"
+      },
+      "outputParams": {
+        "value": "是设路径"
+      },
+      "note": "右键菜单入口 1：选择安装位置"
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$={是设路径}"
+      },
+      "note": "选安装位置：选完记住并结束，不走启动流程",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:selectFolder",
+          "inputParams": {
+            "prompt": "选一个固定位置存放 PSMenu（别选桌面／临时目录）",
+            "initDir.var": "本地AppData",
+            "stopIfFail": "0"
+          },
+          "outputParams": {
+            "isSuccess": "选好了",
+            "path": "选的目录"
+          },
+          "note": "弹文件夹选择框"
+        },
+        {
+          "stepRunnerKey": "sys:simpleIf",
+          "inputParams": {
+            "condition": "$={选好了}"
+          },
+          "note": "真选了才写；点了取消就什么都不做",
+          "ifSteps": [
+            {
+              "stepRunnerKey": "sys:assign",
+              "inputParams": {
+                "input": "$=System.IO.Path.Combine({选的目录}, \"PSMenu\", \"app\")"
+              },
+              "outputParams": {
+                "output": "新安装目录"
+              },
+              "note": "在选中目录下再建一层 PSMenu\\app，不把文件铺在用户选的目录里"
+            },
+            {
+              "stepRunnerKey": "sys:stateStorage",
+              "inputParams": {
+                "type": "saveActionState",
+                "key": "installDir",
+                "value.var": "新安装目录"
+              },
+              "note": "记住这个位置"
+            },
+            {
+              "stepRunnerKey": "sys:MsgBox",
+              "inputParams": {
+                "operation": "default",
+                "title": "安装位置已记住",
+                "message": "$$以后会装到：\n{新安装目录}\n\n再点一次动作，它就会下载并启动到新位置。\n如果原来装在别处，旧的那份要自己删掉。",
+                "icon": "Information",
+                "buttons": "OK"
+              },
+              "note": "把新位置明确告诉用户"
+            }
+          ]
+        },
+        {
+          "stepRunnerKey": "sys:stop",
+          "inputParams": {
+            "method": "default",
+            "isError": "0",
+            "return": "OK: path set"
+          },
+          "note": "设完即止"
+        }
+      ]
+    },
+    {
+      "stepRunnerKey": "sys:strCompare",
+      "inputParams": {
+        "param1.var": "quicker_in_param",
+        "type": "=",
+        "param2": "uninstall",
+        "case": "0"
+      },
+      "outputParams": {
+        "value": "是卸载"
+      },
+      "note": "右键菜单入口 2：卸载（动作被删之前先把软件请干净）"
+    },
+    {
+      "stepRunnerKey": "sys:simpleIf",
+      "inputParams": {
+        "condition": "$={是卸载}"
+      },
+      "note": "卸载流程：全程只移入回收站，误删能捞回来",
+      "ifSteps": [
+        {
+          "stepRunnerKey": "sys:MsgBox",
+          "inputParams": {
+            "operation": "default",
+            "title": "卸载 PS便捷菜单",
+            "message": "$$要卸载 PS便捷菜单吗？\n\n会做这几件事：\n· 关掉正在运行的菜单程序\n· 取消开机自启\n· 删掉桌面快捷方式\n· 程序文件移入回收站（可恢复）\n\n当前安装位置：\n{安装目录}",
+            "icon": "Warning",
+            "buttons": "YesNo"
+          },
+          "outputParams": {
+            "okOrYes": "确认卸载"
+          },
+          "note": "卸载不可轻率，先问一遍"
+        },
+        {
+          "stepRunnerKey": "sys:simpleIf",
+          "inputParams": {
+            "condition": "$=!{确认卸载}"
+          },
+          "note": "点否就什么都不做",
+          "ifSteps": [
+            {
+              "stepRunnerKey": "sys:stop",
+              "inputParams": {
+                "method": "default",
+                "isError": "0",
+                "return": "Cancelled"
+              }
+            }
+          ]
+        },
+        {
+          "stepRunnerKey": "sys:run",
+          "inputParams": {
+            "path": "taskkill",
+            "arg": "/IM PSMenu.exe /F",
+            "waitExit": "1",
+            "stopIfFail": "0"
+          },
+          "note": "先结束常驻实例：它不退出的话文件被占用，移不进回收站"
+        },
+        {
+          "stepRunnerKey": "sys:delay",
+          "inputParams": {
+            "delayMs": "900"
+          },
+          "note": "等文件锁释放"
+        },
+        {
+          "stepRunnerKey": "sys:run",
+          "inputParams": {
+            "path": "reg",
+            "arg": "delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v PSMenu /f",
+            "waitExit": "1",
+            "stopIfFail": "0"
+          },
+          "note": "取消开机自启（程序自己写的是 HKCU\\...\\Run 下的 PSMenu 值）"
+        },
+        {
+          "stepRunnerKey": "sys:getFolderPath",
+          "inputParams": {
+            "folder": "Desktop"
+          },
+          "outputParams": {
+            "path": "桌面目录"
+          },
+          "note": "取桌面路径"
+        },
+        {
+          "stepRunnerKey": "sys:fileOperation",
+          "inputParams": {
+            "type": "recycleNoUi",
+            "path": "$${桌面目录}\\PS便捷菜单.lnk",
+            "stopIfFail": "0"
+          },
+          "note": "桌面快捷方式移入回收站（没有这个文件就静默跳过）"
+        },
+        {
+          "stepRunnerKey": "sys:fileOperation",
+          "inputParams": {
+            "type": "recycleNoUi",
+            "path": "$${安装目录}",
+            "stopIfFail": "0"
+          },
+          "note": "程序文件移入回收站"
+        },
+        {
+          "stepRunnerKey": "sys:MsgBox",
+          "inputParams": {
+            "operation": "default",
+            "title": "菜单配置怎么处理",
+            "message": "程序文件已经清掉了。\n\n你调好的菜单还留在 %APPDATA%\\PSMenu，要一起删吗？\n\n· 选「否」＝ 留着。以后重装还认得你的菜单和置顶\n· 选「是」＝ 一起删掉，重装就是全新的",
+            "icon": "Question",
+            "buttons": "YesNo"
+          },
+          "outputParams": {
+            "okOrYes": "连配置一起删"
+          },
+          "note": "配置是用户自己调出来的劳动成果，默认留着，让用户定"
+        },
+        {
+          "stepRunnerKey": "sys:simpleIf",
+          "inputParams": {
+            "condition": "$={连配置一起删}"
+          },
+          "ifSteps": [
+            {
+              "stepRunnerKey": "sys:getFolderPath",
+              "inputParams": {
+                "folder": "ApplicationData"
+              },
+              "outputParams": {
+                "path": "漫游AppData"
+              },
+              "note": "配置在 Roaming\\PSMenu"
+            },
+            {
+              "stepRunnerKey": "sys:fileOperation",
+              "inputParams": {
+                "type": "recycleNoUi",
+                "path": "$${漫游AppData}\\PSMenu",
+                "stopIfFail": "0"
+              },
+              "note": "配置目录移入回收站"
+            }
+          ]
+        },
+        {
+          "stepRunnerKey": "sys:stateStorage",
+          "inputParams": {
+            "type": "saveActionState",
+            "key": "installDir",
+            "value": "*NULL*"
+          },
+          "note": "清掉记住的安装位置，免得下次又装回老地方"
+        },
+        {
+          "stepRunnerKey": "sys:stateStorage",
+          "inputParams": {
+            "type": "UpdateActionBadge"
+          },
+          "note": "清掉动作上的版本徽标"
+        },
+        {
+          "stepRunnerKey": "sys:notify",
+          "inputParams": {
+            "type": "Success",
+            "msg": "PS便捷菜单 已卸载（程序和快捷方式都进回收站了）"
+          },
+          "note": "告诉用户完事了"
+        },
+        {
+          "stepRunnerKey": "sys:stop",
+          "inputParams": {
+            "method": "default",
+            "isError": "0",
+            "return": "Uninstalled"
+          }
+        }
+      ]
+    },
+    {
       "stepRunnerKey": "sys:fileOperation",
       "inputParams": {
         "type": "makeDir",
@@ -381,14 +676,14 @@
   "variables": [
     {
       "key": "quicker_in_param",
-      "desc": "传入指令：空=启动/唤出，config=打开设置，update=强制更新",
+      "desc": "传入指令：空=启动/唤出，config=打开设置，update=强制更新；右键菜单另有 setpath=换安装位置、uninstall=卸载",
       "isInput": true,
       "default": ""
     },
     {
       "key": "安装目录",
-      "desc": "PSMenu 独立版安装位置",
-      "default": "C:\\Users\\EDY\\AppData\\Local\\PSMenu\\app"
+      "desc": "PSMenu 装在哪（留空=默认装到 %LOCALAPPDATA%\\PSMenu\\app；想换位置用动作右键的「选择安装位置…」）",
+      "default": ""
     },
     {
       "key": "临时目录",
